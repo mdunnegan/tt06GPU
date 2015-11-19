@@ -56,7 +56,6 @@ __global__ void initialConditions(double* vars, int num_param, int num_cells, in
 	}
 
 	passed[idxx] = 0;
-
 }
 
 __global__ void computeState(double* x, double* ion_current, int total_cells, double step, double* randNums, int variations, double* x_temp, int num_changing_vars, int cells_per_thread) {
@@ -445,7 +444,6 @@ __global__ void updateState(double* x, double* x_temp, int num_cells, int cells_
 			x[(variations * 19 * num_cells) + idx + (i*num_cells)] = x_temp[(variations * 19 * num_cells) + idx + (i*num_cells)];
 		}
 	}
-
 }
 
 __global__ void compute_voltage(double* x, double* V, double* Iion, double step, double* randNums, int variations, int length, int width, int num_changing_vars, int time, double stimDur, double stimAmp, int tstim, int cells_per_thread, bool local, int* passed, int threshold, int total_s2_times, bool s2_analysis, int simulations, double* s2time) {
@@ -615,7 +613,6 @@ __global__ void compute_voltage(double* x, double* V, double* Iion, double step,
 
 
 	}
-
 }
 
 __global__ void update_voltage(double* x, double* V, int total_cells, int cells_per_thread) {
@@ -629,11 +626,12 @@ __global__ void update_voltage(double* x, double* V, int total_cells, int cells_
 		x[n] = V[m];
 	}
 }
-__global__ void computeVelocity(double* vel, int* passed, int num_cells)
-{
+
+__global__ void computeVelocity(double* vel, int* passed, int num_cells){
 	int idx = threadIdx.x;
 	vel[idx] = (passed[(idx * num_cells) + (num_cells -1)] - passed[idx * num_cells])/num_cells;
 }
+
 __global__ void computeVelocity(double* voltage, int iterations, int num_cells, double* vel, double time, int length, int width) {
 	double startTP = 0.0;
 	double endTP = 0.0;
@@ -661,11 +659,9 @@ __global__ void computeVelocity(double* voltage, int iterations, int num_cells, 
 	//distance = ;
 
 	vel[idx] = endTP - startTP;
-
 }
 
-__global__ void computeLocal(int* passed, int num_cells, int* vel)
-{
+__global__ void computeLocal(int* passed, int num_cells, int* vel){
 	int idx = blockIdx.x * (num_cells -1 ) + threadIdx.x;
 	int idxP = blockIdx.x * num_cells + threadIdx.x;
 	vel[idx] = passed[idxP + 1] - passed[idxP];
@@ -688,23 +684,21 @@ __global__ void make_randomNums( double* randArray, int num_cells, int num_chang
 
 	randArray[idx] = exp(sigma1D*curand_normal(&local)); //computes randNum with wider distribution for first cell
 
-	for(ii = 1; ii < total_s2_times; ii++)
-	{
+	for(ii = 1; ii < total_s2_times; ii++){
 		randArray[idx + (sims * ii)] = randArray[idx];
 	}
-	for (i = (idx + num_changing_vars); i < (idx + (num_changing_vars * num_cells)); i += num_changing_vars)
-	{
+	for (i = (idx + num_changing_vars); i < (idx + (num_changing_vars * num_cells)); i += num_changing_vars){
 		// computes randNums to create a smaller norm distribution for rest of cells in cable
 		randArray[i] = randArray[idx] + (curand_normal(&local) * sigma2D);
 		
-		for(ii = 1; ii < total_s2_times; ii++)
-	{
-		randArray[i + (sims * ii)] = randArray[i];
-	}
-		//randArray[i] = randArray[idx];
+		for(ii = 1; ii < total_s2_times; ii++){
+			randArray[i + (sims * ii)] = randArray[i];
+		}
+			//randArray[i] = randArray[idx];
 	}
 }
 
+// This method is not worth being in parallel
 __global__ void initialize_time_s2(double begin_time, double interval, double* time_s2) {
 	int idx = blockIdx.x*blockDim.x + threadIdx.x;
 	time_s2[idx] = begin_time + (interval*idx);
@@ -723,8 +717,7 @@ __global__ void percentage_excited(double* V_array, int iterations, int num_cell
 	percent[idx] = (double)num_excited ;
 }
 
-int main(int argc, const char* argv[])
-{
+int main(int argc, const char* argv[]){
 	int i, ii, iii;
 	int time = 0;
 
@@ -736,8 +729,6 @@ int main(int argc, const char* argv[])
 	FILE *s2output = fopen("tt06 GPU s2 Analysis.txt", "w");
 	FILE *v = fopen("tt06 GPU localVelocity.txt", "w");
 	FILE *p = fopen("tt06 GPU passedThreshold.txt", "w");
-
-	
 
 	int index = 0;
 
@@ -754,24 +745,16 @@ int main(int argc, const char* argv[])
 	double* dev_vel;
 	double* vel;
 
-	
-
 	double* t_array;
-
-	
 
 	double* s2_times;
 	double* s2_times_dev;
 
-	
 	double* percent_excited;
 	double* dev_percent_excited;
 
-
 	cudaEvent_t start, stop;
 	float elapsedTime;
-
-
 
 	int size;
 	double begin_time;
@@ -808,20 +791,16 @@ int main(int argc, const char* argv[])
 	int tstim = stimInterval / step;
 
 	// Sensitivity Analysis?
-	int num_changing_vars = 17;
+	int num_changing_vars = 17; 
+	//int num_changing_vars = 0;
 
 	int* dev_passed;
 	int* dev_velLocal;
 	int* host_passed;
 	int* host_velLocal;
 
-
-
 	int threshold = -55;
 	bool local = true;
-
-
-	//int num_changing_vars = 0;
 
 	// S2 Analysis?
 	bool s2_analysis = true;
@@ -840,95 +819,90 @@ int main(int argc, const char* argv[])
 
 		s2_times = (double*)malloc(sizeof(double)*total_s2_times);
 		cudaMalloc(&s2_times_dev, sizeof(double)*total_s2_times);
-		initialize_time_s2 << <1, total_s2_times >> >(begin_time, test_interval, s2_times_dev);
-		cudaMemcpy(s2_times, s2_times_dev, total_s2_times*sizeof(double), cudaMemcpyDeviceToHost);
 
+		// This can't be worth the parallel overhead of doing cuda memcpy
+		initialize_time_s2 <<<1, total_s2_times >>> (begin_time, test_interval, s2_times_dev);
+		cudaMemcpy(s2_times, s2_times_dev, total_s2_times*sizeof(double), cudaMemcpyDeviceToHost);
 	}
 	
-	simulations = simulations * total_s2_times;
-	size = num_param*num_cells*simulations;
+	simulations = simulations * total_s2_times; // total_s2_times can be uninitialized. It's set in an if statement
+	size = num_param * num_cells * simulations;
 
 	if (num_changing_vars != 0) {
 		printf("Enter a seed factor\n");
 		scanf("%d", &seed_factor);
 		
-		//cudaMalloc(&rndState, simulations*num_changing_vars * sizeof(curandState));
-		//cudaMalloc(&rndState, simulations*num_changing_vars);
-		cudaMalloc(&dev_randNums, sizeof(double)*simulations*num_changing_vars * num_cells);
-		randNums = (double*)malloc(sizeof(double)*simulations*num_changing_vars * num_cells);
+		//cudaMalloc(&rndState, simulations * num_changing_vars * sizeof(curandState));
+		//cudaMalloc(&rndState, simulations * num_changing_vars);
+		cudaMalloc(&dev_randNums, sizeof(double) * simulations * num_changing_vars * num_cells);
+		randNums = (double*) malloc(sizeof(double) * simulations * num_changing_vars * num_cells);
 		
-		//init_randomNums << <simulations, num_changing_vars >> >(rndState, seed_factor);
+		//init_randomNums <<<simulations, num_changing_vars >>> (rndState, seed_factor);
 		//cudaDeviceSynchronize();
-		make_randomNums << <simulations/3, num_changing_vars >> >(dev_randNums, num_cells, num_changing_vars, seed_factor, total_s2_times, simulations);
+		make_randomNums <<<simulations/3, num_changing_vars >>> (dev_randNums, num_cells, num_changing_vars, seed_factor, total_s2_times, simulations);
 		printf("rands created\n");
 	}
-	size = num_param*num_cells*simulations;
+	size = num_param * num_cells * simulations;
 
 	// vars array contains voltage&state vartiables for all cells across all simulations
-	host_vars = (double *)malloc(sizeof(double)*size);
-	cudaMalloc(&dev_vars, sizeof(double)*size);
-
+	host_vars = (double *) malloc(sizeof(double) * size);
+	cudaMalloc(&dev_vars, sizeof(double) * size);
 
 	// results of the computeState kernel
-	cudaMalloc(&dev_ion_currents, sizeof(double)*num_cells*simulations);
-	cudaMalloc(&dev_x_temp, sizeof(double)*size);
+	cudaMalloc(&dev_ion_currents, sizeof(double) * num_cells * simulations);
+	cudaMalloc(&dev_x_temp, sizeof(double) * size);
 
 	// result of the computeVoltage kernel 
-	host_Vtemp = (double*)malloc(sizeof(double)*num_cells*simulations);
-	cudaMalloc(&dev_Vtemp, sizeof(double)*num_cells*simulations);
+	host_Vtemp = (double*) malloc(sizeof(double) * num_cells * simulations);
+	cudaMalloc(&dev_Vtemp, sizeof(double) * num_cells * simulations);
 
-	V_array = (double*)malloc(sizeof(double)*(total_timepts*num_cells*simulations));
+	V_array = (double*) malloc(sizeof(double) * (total_timepts * num_cells * simulations));
 
-	t_array = (double*)malloc(sizeof(double)*(total_timepts*simulations));
-
-
+	t_array = (double*) malloc(sizeof(double) * (total_timepts * simulations));
 
 
 
-	host_velLocal = (int*)malloc(simulations * (num_cells-1) *sizeof(int));
-	host_passed = (int*)malloc(simulations*num_cells*sizeof(int));
-	cudaMalloc(&dev_velLocal, sizeof(int)* simulations*(num_cells-1));
-	cudaMalloc(&dev_passed, sizeof(int)*simulations*num_cells);
+	host_velLocal = (int*) malloc(simulations * (num_cells-1) * sizeof(int));
+	host_passed = (int*) malloc(simulations * num_cells * sizeof(int));
+
+	cudaMalloc(&dev_velLocal, sizeof(int) * simulations * (num_cells-1));
+	cudaMalloc(&dev_passed, sizeof(int) * simulations * num_cells);
 
 
 	// Initialize vars array with initial conditions
 
-	initialConditions << <simulations, (num_cells / cells_per_thread) >> >(dev_vars, num_param, num_cells, cells_per_thread, dev_passed);
+	initialConditions <<<simulations, (num_cells / cells_per_thread)>>> (dev_vars, num_param, num_cells, cells_per_thread, dev_passed);
 
 	printf("initalized\n");
 
-	while (time<iterations) {
+	while (time < iterations) {
 
-		computeState << <simulations, (num_cells / cells_per_thread) >> >(dev_vars, dev_ion_currents, num_cells, step, dev_randNums, simulations, dev_x_temp, num_changing_vars, cells_per_thread);
+		computeState <<<simulations, (num_cells / cells_per_thread)>>> (dev_vars, dev_ion_currents, num_cells, step, dev_randNums, simulations, dev_x_temp, num_changing_vars, cells_per_thread);
 		//updateState << <simulations, (num_cells / cells_per_thread) >> >(dev_vars, dev_x_temp, num_cells, cells_per_thread);
 
 
-		compute_voltage << <simulations, (num_cells / cells_per_thread) >> >(dev_vars, dev_Vtemp, dev_ion_currents, step, dev_randNums, simulations, length, width, num_changing_vars, time, stimDur, stimAmp, tstim, cells_per_thread, local, dev_passed, threshold, total_s2_times, s2_analysis,simulations, s2_times_dev);
+		compute_voltage <<<simulations, (num_cells / cells_per_thread) >>>(dev_vars, dev_Vtemp, dev_ion_currents, step, dev_randNums, simulations, length, width, num_changing_vars, time, stimDur, stimAmp, tstim, cells_per_thread, local, dev_passed, threshold, total_s2_times, s2_analysis,simulations, s2_times_dev);
 		//update_voltage << <simulations, (num_cells / cells_per_thread) >> >(dev_vars, dev_Vtemp, num_cells, cells_per_thread);
 
 		//update Voltage and time arrays and write data to file
 
-		if (time%skip_timept == 0) {
-			cudaMemcpy(host_Vtemp, dev_Vtemp, num_cells*simulations*sizeof(double), cudaMemcpyDeviceToHost);
-
-			
-			
-			for (i = 0; i<num_cells*simulations; i++) {
-				V_array[(i*(iterations / skip_timept)) + index] = host_Vtemp[i];
+		if (time % skip_timept == 0) {
+			cudaMemcpy(host_Vtemp, dev_Vtemp, num_cells * simulations * sizeof(double), cudaMemcpyDeviceToHost);
+	
+			for (i = 0; i < num_cells * simulations; i++) {
+				V_array[(i * (iterations / skip_timept)) + index] = host_Vtemp[i];
 				fprintf(fV, "%f\t ", host_Vtemp[i]);
 			}
 			fprintf(fV, "\n");
-			fprintf(ft, "%f \n", time*step);
+			fprintf(ft, "%f\n", time * step);
 
-			for (i = 0; i<simulations; i++) {
-				t_array[(index*simulations) + i] = time*step;
+			for (i = 0; i < simulations; i++) {
+				t_array[(index * simulations) + i] = time * step;
 			}
 			index++;
 		}
 		time++;
 	}
-
-
 	
 	/*
 	The Model Computations are Finished
@@ -947,81 +921,61 @@ int main(int argc, const char* argv[])
 	cudaFree(dev_Vtemp);
 
 
-	printf("Elapsed Time = %f s \n", elapsedTime / 1000);
+	printf("Elapsed Time = %fs \n", elapsedTime / 1000);
 	printf("\n");
 	printf("Calculating Simulation outputs...\n");
 	printf("\n");
 
 	if (num_changing_vars != 0) {
-		vel = (double*)malloc(sizeof(double)*simulations);
-		cudaMalloc(&dev_vel, (sizeof(double)*simulations));
+		vel = (double*) malloc(sizeof(double) * simulations);
+		cudaMalloc(&dev_vel, (sizeof(double) * simulations));
 
-		cudaMalloc(&dev_V_array, sizeof(double)*(total_timepts*num_cells*simulations));
-		cudaMemcpy(dev_V_array, V_array, sizeof(double)*(total_timepts*num_cells*simulations), cudaMemcpyHostToDevice);
+		cudaMalloc(&dev_V_array, sizeof(double) * (total_timepts * num_cells * simulations));
+		cudaMemcpy(dev_V_array, V_array, sizeof(double) * (total_timepts * num_cells * simulations), cudaMemcpyHostToDevice);
 
 
-		computeVelocity<<< 1, simulations>>>(dev_vel,dev_passed,num_cells);
+		computeVelocity <<<1, simulations>>>(dev_vel,dev_passed,num_cells);
 		//computeVelocity <<<1, simulations >>>(dev_V_array, total_timepts, num_cells, dev_vel, step*skip_timept, length, width);
 		computeLocal <<<simulations,(num_cells-1)>>>(dev_passed,num_cells,dev_velLocal);
 
-		
+
+		cudaMemcpy(vel, dev_vel, simulations * sizeof(double), cudaMemcpyDeviceToHost);
+		cudaMemcpy(randNums, dev_randNums, num_changing_vars * simulations * sizeof(double) * num_cells, cudaMemcpyDeviceToHost);
+		cudaMemcpy(host_passed,dev_passed, sizeof(int) * simulations * num_cells, cudaMemcpyDeviceToHost);
+		cudaMemcpy(host_velLocal,dev_velLocal,sizeof(int) * simulations * (num_cells-1), cudaMemcpyDeviceToHost);	
 
 
-		cudaMemcpy(vel, dev_vel, simulations*sizeof(double), cudaMemcpyDeviceToHost);
-		cudaMemcpy(randNums, dev_randNums, num_changing_vars*simulations*sizeof(double) * num_cells, cudaMemcpyDeviceToHost);
-		cudaMemcpy(host_passed,dev_passed, sizeof(int)*simulations*num_cells, cudaMemcpyDeviceToHost);
-		cudaMemcpy(host_velLocal,dev_velLocal,sizeof(int)* simulations*(num_cells-1), cudaMemcpyDeviceToHost);	
-
-		
-
-		
-
-
-		for (i = 0; i<simulations; i++) {
-			for (ii = 0; ii<num_changing_vars; ii++) {
+		for (i = 0; i < simulations; i++) {
+			for (ii = 0; ii < num_changing_vars; ii++) {
 				//printf( "%f\t", randNums[(i*num_changing_vars * num_cells)+ii]);
-				fprintf(params, "%f\t", randNums[(i*num_changing_vars * num_cells) + ii]);
+				fprintf(params, "%f\t", randNums[(i * num_changing_vars * num_cells) + ii]);
 				
-				}
-			for (iii = 0; iii< num_cells; iii++){
+			}
+			for (iii = 0; iii < num_cells; iii++){
 				for (ii = 0; ii<num_changing_vars; ii++) {
 					//printf( "%f\t", randNums[(i*num_changing_vars * num_cells)+ii]);
-					fprintf(allparams, "%f\t", randNums[(i* num_cells * num_changing_vars) + (iii * num_changing_vars) + ii]);
-
+					fprintf(allparams, "%f\t", randNums[(i * num_cells * num_changing_vars) + (iii * num_changing_vars) + ii]);
 				}
 				fprintf(allparams, "\n");
-				
 			}
-			for(ii = 0; ii <  num_cells; ii++)
-			{
+			for(ii = 0; ii <  num_cells; ii++){
 				fprintf(p, "%i\t", host_passed[i * num_cells + ii] );
-				
 			}
-			for(ii = 0; ii < num_cells-1;ii++)
-			{
+			for(ii = 0; ii < num_cells-1;ii++){
 				fprintf(v, "%i\t", host_velLocal[i * (num_cells-1) + ii]);
-
-				
 			}
 			fprintf(p, "\n" );
 			fprintf(v, "\n" );
 			fprintf(params, "\n");
-
-			
-
 		}
 		fprintf(params, "]; \n");
 		//fprintf(output, "\n");
 		
-
-		
-		for (i = 0; i<simulations; i++) {
+		for (i = 0; i < simulations; i++) {
 			fprintf(output, "%f\n", vel[i]);
-			
 		}
 		fprintf(output, "]; \n");
 		
-
 		//cudaFree(rndState);
 		cudaFree(dev_randNums);
 		free(randNums);
@@ -1032,8 +986,6 @@ int main(int argc, const char* argv[])
 		cudaFree(dev_passed);
 		free(host_velLocal);
 		free(host_passed);
-
-
 	}
 
 	if (s2_analysis) {
@@ -1043,15 +995,11 @@ int main(int argc, const char* argv[])
 		percent_excited = (double*)malloc(sizeof(double)*total_s2_times);
 		cudaMalloc(&dev_percent_excited, sizeof(double)*total_s2_times);
 
-		
-		percentage_excited << <1, simulations >> >(dev_V_array, total_timepts, num_cells, dev_percent_excited, simulations);
+		percentage_excited <<<1, simulations>>> (dev_V_array, total_timepts, num_cells, dev_percent_excited, simulations);
 
 		cudaMemcpy(percent_excited, dev_percent_excited, total_s2_times*sizeof(double), cudaMemcpyDeviceToHost);
-
 		
-
-		
-		for (i = 0; i<simulations; i++) {
+		for (i = 0; i < simulations; i++) {
 			fprintf(s2output, "%f\n", s2_times[i]);
 			
 		}
@@ -1060,20 +1008,16 @@ int main(int argc, const char* argv[])
 		fprintf(s2output, "% = [ \n");
 
 
-		for (i = 0; i<simulations; i++) {
-			fprintf(s2output, "%f\n", percent_excited[i]);
-
-			
+		for (i = 0; i < simulations; i++) {
+			fprintf(s2output, "%f\n", percent_excited[i]);	
 		}
 		
 		free(percent_excited);
 		cudaFree(dev_percent_excited);
-
-		
 	}
 
 	free(V_array);
 	cudaFree(dev_V_array);
-	
+
 	printf("Program is Done\n");
 }
